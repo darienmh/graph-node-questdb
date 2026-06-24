@@ -1,5 +1,9 @@
 # Graph Node
 
+<p align="center">
+  <img src="./docs/images/questdb-export-banner.png" alt="Graph Node indexes blockchain blocks through a WASM runtime into Postgres, and streams committed entities to QuestDB over ILP/TCP for time-series analytics" width="100%">
+</p>
+
 [![Build Status](https://github.com/graphprotocol/graph-node/actions/workflows/ci.yml/badge.svg)](https://github.com/graphprotocol/graph-node/actions/workflows/ci.yml?query=branch%3Amaster)
 [![Docs](https://img.shields.io/badge/docs-graph--node-green.svg)](docs/)
 [![Subgraphs](https://img.shields.io/badge/docs-subgraphs-green.svg)](https://thegraph.com/docs/en/subgraphs/quick-start/)
