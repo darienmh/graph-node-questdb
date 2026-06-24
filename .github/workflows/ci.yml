@@ -23,8 +23,8 @@ env:
 jobs:
   unit-tests:
     name: Run unit tests
-    runs-on: nscloud-ubuntu-22.04-amd64-16x32
-    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
     services:
       ipfs:
         image: ipfs/go-ipfs:v0.10.0
@@ -76,8 +76,8 @@ jobs:
 
   runner-tests:
     name: Subgraph Runner integration tests
-    runs-on: nscloud-ubuntu-22.04-amd64-16x32
-    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
     services:
       ipfs:
         image: ipfs/go-ipfs:v0.10.0
@@ -129,8 +129,8 @@ jobs:
 
   integration-tests:
     name: Run integration tests
-    runs-on: nscloud-ubuntu-22.04-amd64-16x32
-    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
     services:
       ipfs:
         image: ipfs/go-ipfs:v0.10.0
