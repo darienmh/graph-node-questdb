@@ -1,0 +1,15 @@
+[package]
+name = "graph-store-questdb"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+graph = { path = "../../graph" }
+questdb-rs = "6.1"
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+
+[lints]
+workspace = true

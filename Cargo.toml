@@ -19,6 +19,7 @@ members = [
     "server/json-rpc",
     "server/metrics",
     "store/postgres",
+    "store/questdb",
     "store/test-store",
     "graph",
     "tests",

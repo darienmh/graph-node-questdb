@@ -153,6 +153,25 @@ query {
 - Choosing the right backend for your use case
 - Performance considerations and best practices
 
+#### QuestDB Export
+
+`graph-node` can stream entity changes to [QuestDB](https://questdb.io/) over the
+InfluxDB Line Protocol (ILP) as subgraphs index, enabling time-series analytics
+over indexed data without querying Postgres. The export is opt-in per deployment,
+best-effort (it never blocks or fails indexing), and append-only.
+
+**Quick example** (add to your [configuration file](./docs/config.md)):
+```toml
+[questdb]
+url = "tcp::addr=localhost:9009;"
+
+[[questdb.export]]
+subgraph = "QmYourSubgraphHash"   # or "*" for all deployments
+entities = ["Transfer", "Swap"]   # or ["*"] for all entity types
+```
+
+**For complete documentation**, see the **[QuestDB Export Guide](./docs/questdb-export.md)**, which covers the data model, value type mapping, configuration options, and operational notes (including reorg semantics).
+
 ## Contributing
 
 Please check [CONTRIBUTING.md](CONTRIBUTING.md) for development flow and conventions we use.

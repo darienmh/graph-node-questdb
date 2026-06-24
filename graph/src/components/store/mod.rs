@@ -1,5 +1,6 @@
 mod entity_cache;
 mod err;
+pub mod sink;
 mod traits;
 pub mod write;
 
@@ -18,6 +19,7 @@ use tokio_stream::wrappers::ReceiverStream;
 pub use super::subgraph::Entity;
 pub use err::{StoreError, StoreResult};
 use itertools::Itertools;
+pub use sink::{DeploymentSink, EntityChange, EntityChangeOperation, EntitySinkRegistry};
 use strum_macros::Display;
 pub use traits::*;
 pub use write::Batch;

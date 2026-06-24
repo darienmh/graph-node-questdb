@@ -163,6 +163,10 @@ impl StoreBuilder {
                 .map(|(name, pool, _, _)| (name.clone(), pool.clone())),
         );
 
+        // Optional QuestDB sink: streams committed entities to QuestDB over
+        // ILP. Disabled (and zero-cost) when there is no `[questdb]` config.
+        let questdb_sink = graph_store_questdb::QuestDbSink::start(logger, config.questdb.as_ref());
+
         let store = Arc::new(SubgraphStore::new(
             logger,
             shards,
@@ -170,6 +174,7 @@ impl StoreBuilder {
             notification_sender,
             fork_base,
             registry,
+            questdb_sink,
         ));
 
         (store, pools, coord)
