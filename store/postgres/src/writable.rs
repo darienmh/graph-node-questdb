@@ -10,7 +10,10 @@ use std::{collections::BTreeMap, sync::Arc};
 use async_trait::async_trait;
 use graph::blockchain::BlockTime;
 use graph::blockchain::block_stream::{EntitySourceOperation, FirehoseCursor};
-use graph::components::store::{Batch, DeploymentCursorTracker, DerivedEntityQuery, ReadStore};
+use graph::components::store::{
+    Batch, DeploymentCursorTracker, DeploymentSink, DerivedEntityQuery, EntityChange,
+    EntityChangeOperation, ReadStore,
+};
 use graph::data::store::IdList;
 use graph::data::subgraph::schema;
 use graph::data_source::CausalityRegion;
@@ -166,6 +169,10 @@ struct SyncStore {
     input_schema: InputSchema,
     manifest_idx_and_name: Arc<Vec<(u32, String)>>,
     last_rollup: LastRollupTracker,
+    /// Per-deployment sink for streaming committed entity changes to an
+    /// external store (e.g. QuestDB). `None` when export is not configured for
+    /// this deployment, in which case there is no per-block overhead.
+    export: Option<Arc<dyn DeploymentSink>>,
 }
 
 impl SyncStore {
@@ -186,6 +193,11 @@ impl SyncStore {
             block,
         )
         .await?;
+        // Resolve the per-deployment sink once, so that deployments not
+        // configured for export incur no per-block overhead.
+        let export = subgraph_store.entity_sink().and_then(|registry| {
+            registry.for_deployment(&site.deployment, site.namespace.as_str())
+        });
 
         Ok(Self {
             logger,
@@ -195,6 +207,7 @@ impl SyncStore {
             input_schema,
             manifest_idx_and_name,
             last_rollup,
+            export,
         })
     }
 }
@@ -320,7 +333,57 @@ impl SyncStore {
                 Ok(())
             }
         })
-        .await
+        .await?;
+
+        // The batch is now durably committed. Forward the committed entity
+        // changes to the external sink (e.g. QuestDB) on a best-effort basis;
+        // this never blocks or fails the write path.
+        if let Some(sink) = &self.export
+            && !batch.export_changes.is_empty()
+        {
+            sink.submit(&batch.block_ptr, batch.export_changes.clone());
+        }
+
+        Ok(())
+    }
+
+    /// Build the entity changes to forward to the external sink from the raw,
+    /// unfolded modifications for a single block. Returns an empty vector when
+    /// no sink is configured for this deployment, so callers pay nothing extra.
+    fn build_export_changes(
+        &self,
+        mods: &[EntityModification],
+        block_number: BlockNumber,
+        block_time: BlockTime,
+    ) -> Vec<EntityChange> {
+        let Some(sink) = &self.export else {
+            return Vec::new();
+        };
+        let mut changes = Vec::new();
+        for m in mods {
+            let entity_type = &m.key().entity_type;
+            if !sink.wants(entity_type) {
+                continue;
+            }
+            let (operation, data) = match m {
+                EntityModification::Insert { data, .. } => {
+                    (EntityChangeOperation::Insert, Some(data.clone()))
+                }
+                EntityModification::Overwrite { data, .. } => {
+                    (EntityChangeOperation::Overwrite, Some(data.clone()))
+                }
+                EntityModification::Remove { .. } => (EntityChangeOperation::Remove, None),
+            };
+            changes.push(EntityChange {
+                entity_type: entity_type.clone(),
+                id: m.key().entity_id.to_string(),
+                operation,
+                data,
+                block_number,
+                block_time,
+            });
+        }
+        changes
     }
 
     async fn get_many(
@@ -1826,7 +1889,14 @@ impl WritableStoreTrait for WritableStore {
             ));
         }
 
-        let batch = Batch::new(
+        // Capture the changes to export to the external sink from the raw,
+        // unfolded modifications (which still distinguish inserts, overwrites
+        // and removals) before they are moved into the batch.
+        let export_changes =
+            self.store
+                .build_export_changes(&mods, block_ptr_to.number, block_time);
+
+        let mut batch = Batch::new(
             block_ptr_to.clone(),
             block_time,
             firehose_cursor.clone(),
@@ -1837,6 +1907,7 @@ impl WritableStoreTrait for WritableStore {
             is_non_fatal_errors_active,
             self.store.logger.clone(),
         )?;
+        batch.set_export_changes(export_changes);
         self.writer.write(batch, stopwatch).await?;
 
         *self.block_ptr.lock().unwrap() = Some(block_ptr_to);

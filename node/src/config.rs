@@ -23,6 +23,7 @@ use graph::{
 use graph_chain_ethereum as ethereum;
 use graph_chain_ethereum::{Compression, NodeCapabilities};
 use graph_store_postgres::{DeploymentPlacer, PRIMARY_SHARD, Shard as ShardName};
+use graph_store_questdb::QuestDbConfig;
 
 use graph::http::{HeaderMap, Uri};
 use serde::Serialize;
@@ -84,6 +85,8 @@ pub struct Config {
     pub chains: ChainSection,
     pub deployment: Deployment,
     pub log_store: Option<LogStoreSection>,
+    /// Optional QuestDB export: stream committed entities to QuestDB over ILP.
+    pub questdb: Option<QuestDbConfig>,
 }
 
 fn validate_name(s: &str) -> Result<()> {
@@ -237,6 +240,7 @@ impl Config {
             chains,
             deployment,
             log_store: None,
+            questdb: None,
         })
     }
 
@@ -2419,6 +2423,7 @@ fdw_pool_size = [
             deployment: toml::from_str("[[rule]]\nshards = [\"primary\"]\nindexers = [\"test\"]")
                 .unwrap(),
             log_store: None,
+            questdb: None,
         };
 
         let amp = config.amp_chain_names();
@@ -2462,6 +2467,7 @@ fdw_pool_size = [
                 )
                 .unwrap(),
                 log_store: None,
+                questdb: None,
             }
         };
 

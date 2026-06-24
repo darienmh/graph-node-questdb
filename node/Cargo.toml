@@ -30,6 +30,7 @@ graph-server-index-node = { path = "../server/index-node" }
 graph-server-json-rpc = { path = "../server/json-rpc" }
 graph-server-metrics = { path = "../server/metrics" }
 graph-store-postgres = { path = "../store/postgres" }
+graph-store-questdb = { path = "../store/questdb" }
 graphman-server = { workspace = true }
 graphman = { workspace = true }
 serde = { workspace = true }

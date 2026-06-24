@@ -18,7 +18,9 @@ use crate::{
     util::cache_weight::CacheWeight,
 };
 
-use super::{BlockNumber, EntityKey, EntityType, StoreError, StoredDynamicDataSource};
+use super::{
+    BlockNumber, EntityChange, EntityKey, EntityType, StoreError, StoredDynamicDataSource,
+};
 
 /// A data structure similar to `EntityModification`, but tagged with a
 /// block. We might eventually replace `EntityModification` with this, but
@@ -777,6 +779,12 @@ pub struct Batch {
     pub offchain_to_remove: DataSources,
     pub error: Option<StoreError>,
     pub is_non_fatal_errors_active: bool,
+    /// Committed entity changes to forward to an external sink (e.g. QuestDB)
+    /// once this batch is durably written. These are derived from the raw,
+    /// unfolded modifications for each block, so they faithfully reflect every
+    /// operation (including removals). Empty when no sink is configured for
+    /// the deployment. This data is never written to Postgres.
+    pub export_changes: Vec<EntityChange>,
     /// Memoize the indirect weight of the batch. We need the `CacheWeight`
     /// of the batch a lot in the write queue to determine if a batch should
     /// be written. Recalculating it every time, which has to happen while
@@ -830,6 +838,7 @@ impl Batch {
             offchain_to_remove,
             error: None,
             is_non_fatal_errors_active,
+            export_changes: Vec::new(),
             indirect_weight: 0,
         };
         batch.weigh();
@@ -853,7 +862,14 @@ impl Batch {
         self.deterministic_errors
             .append(&mut batch.deterministic_errors);
         self.offchain_to_remove.append(batch.offchain_to_remove);
+        self.export_changes.append(&mut batch.export_changes);
         Ok(())
+    }
+
+    /// Set the entity changes to forward to an external sink once this batch is
+    /// committed. See [`Batch::export_changes`].
+    pub fn set_export_changes(&mut self, changes: Vec<EntityChange>) {
+        self.export_changes = changes;
     }
 
     /// Append `batch` to `self` so that writing `self` afterwards has the

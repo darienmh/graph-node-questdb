@@ -18,8 +18,8 @@ use graph::{
         server::index_node::VersionInfo,
         store::{
             self, BlockPtrForNumber, BlockStore, DeploymentLocator, DeploymentSchemaVersion,
-            DumpReporter, EnsLookup as EnsLookupTrait, PruneReporter, PruneRequest,
-            RestoreReporter, SubgraphFork,
+            DumpReporter, EnsLookup as EnsLookupTrait, EntitySinkRegistry, PruneReporter,
+            PruneRequest, RestoreReporter, SubgraphFork,
         },
     },
     data::{
@@ -234,10 +234,11 @@ impl SubgraphStore {
         sender: Arc<NotificationSender>,
         fork_base: Option<Url>,
         registry: Arc<MetricsRegistry>,
+        sink: Option<Arc<dyn EntitySinkRegistry>>,
     ) -> Self {
         Self {
             inner: Arc::new(Inner::new(
-                logger, stores, placer, sender, registry, fork_base,
+                logger, stores, placer, sender, registry, fork_base, sink,
             )),
         }
     }
@@ -265,6 +266,12 @@ impl SubgraphStore {
 
     pub fn notification_sender(&self) -> Arc<NotificationSender> {
         self.sender.clone()
+    }
+
+    /// The optional registry used to stream committed entity changes to an
+    /// external sink (e.g. QuestDB).
+    pub(crate) fn entity_sink(&self) -> Option<&Arc<dyn EntitySinkRegistry>> {
+        self.sink.as_ref()
     }
 
     pub fn for_site(&self, site: &Site) -> Result<&Arc<DeploymentStore>, StoreError> {
@@ -619,6 +626,9 @@ pub struct Inner {
     /// subgraph forks will fetch entities.
     /// Example: https://api.thegraph.com/subgraphs/
     fork_base: Option<Url>,
+    /// Optional registry that streams committed entity changes to an external
+    /// sink (e.g. QuestDB). `None` disables the feature entirely.
+    sink: Option<Arc<dyn EntitySinkRegistry>>,
 }
 
 impl Inner {
@@ -643,6 +653,7 @@ impl Inner {
         sender: Arc<NotificationSender>,
         registry: Arc<MetricsRegistry>,
         fork_base: Option<Url>,
+        sink: Option<Arc<dyn EntitySinkRegistry>>,
     ) -> Self {
         let primary = stores
             .iter()
@@ -684,6 +695,7 @@ impl Inner {
             writables: Mutex::new(HashMap::new()),
             registry,
             fork_base,
+            sink,
         }
     }
 
